@@ -1,6 +1,5 @@
 from django.db import models
 
-
 class DynamicIssueQuestion(models.Model):
     question = models.TextField()
     avg_rating = models.FloatField(default=3.0)
@@ -14,7 +13,6 @@ class DynamicIssueQuestion(models.Model):
     class Meta:
         app_label = 'csas'
 
-
 class UserDatabase(models.Model):
     user_id = models.TextField()
     question = models.TextField()
@@ -25,7 +23,6 @@ class UserDatabase(models.Model):
 
     class Meta:
         app_label = 'csas'
-
 
 class GlobalSetting(models.Model):
     key = models.CharField(max_length=255, unique=True)

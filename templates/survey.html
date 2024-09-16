@@ -1,194 +1,343 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Crowdsourced Survey App</title>
-
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-
-<body class="bg-gray-100 font-sans">
-
-  <div class="max-w-3xl mx-auto p-8">
-
-    <h1 class="text-3xl font-bold mb-6">Crowdsourced Survey Application</h1>
-
-    <!-- Submission Form -->
-    <div id="submission-form">
-      <form id="issue-form" class="bg-white p-8 rounded-lg shadow">
-
-        <div class="mb-6">
-          <label for="issue" class="block text-gray-800 font-medium">Enter your issue:</label>
-          <input type="text" id="input" name="input" class="w-full border mt-2 p-3 rounded" required>
-        </div>
-
-        <button type="submit" class="bg-blue-500 text-white py-3 px-6 rounded hover:bg-blue-600">
-          Submit
-        </button>
-
-      </form>
-    </div>
-
-    <!-- Survey Matrix Panel -->
-    <div id="survey-matrix-panel" class="hidden">
-      <h2 class="text-2xl font-bold mb-6">Survey Matrix</h2>
-
-      <form id="rating-form">
-        <div id="survey-questions" class="bg-white p-8 rounded-lg shadow">
-        </div>
-
-        <button type="submit" class="bg-blue-500 text-white py-3 px-6 rounded hover:bg-blue-600 block mt-4">
-          Submit Ratings
-        </button>
-      </form>
-
-    </div>
-
-  </div>
-  
-  <script>
-  var user_id = window.location.search.split('=')[1];
-  var minScale = "{{ min_scale }}";  // Replace with your actual minimum scale value
-  var maxScale = "{{ max_scale }}";  // Replace with your actual maximum scale value
-  var surveyText = "{{ survey_text }}";  // Replace with your actual survey text
-
-  document.getElementById('issue-form').addEventListener('submit', async function(event) {
-      event.preventDefault();
-      var input = document.getElementById('input').value;
-      console.log('Input:', input);
-
-      try {
-          // Fetch the user submission
-          let response = await fetch('/dynamic-issue-oai/', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ input: input })
-          });
-          let data = await response.json();
-
-          if (data.completion) {
-              window.userSubmission = data.completion;
-              console.log('User submission:', window.userSubmission);
-
-              // Fetch the survey questions and include the user submission
-              await fetchSurveyQuestions();
-          }
-      } catch (error) {
-          console.error('Error:', error);
-      }
-  });
-
-  async function fetchSurveyQuestions() {
-      try {
-          let response = await fetch('/select-questions-simulation/');
-          let data = await response.json();
-
-          let questions = transformQuestionsData(data);
-          questions.unshift({ text: window.userSubmission });  // Add user submission at the beginning
-
-          displaySurveyQuestions(questions);
-          document.getElementById('survey-matrix-panel').classList.remove('hidden');
-      } catch (error) {
-          console.error('Error:', error);
-      }
-  }
-
-  function transformQuestionsData(data) {
-      let questions = [];
-      for (const key in data) {
-          if (key.startsWith('q_')) {
-              questions.push({ text: data[key] });
-          }
-      }
-      return questions;
-  }
-
-  function displaySurveyQuestions(questions) {
-      var surveyQuestionsDiv = document.getElementById('survey-questions');
-      surveyQuestionsDiv.innerHTML = '';
-      surveyQuestionsDiv.appendChild(createQuestionMatrix(questions));
-  }
-
-  function createQuestionMatrix(questions) {
-      var table = document.createElement('table');
-      table.classList.add('w-full');
-
-      // Add the dynamic table header row
-      var headerRow = table.insertRow(-1);
-      var headerCell = headerRow.insertCell(0);
-      headerCell.textContent = surveyText;
-      headerCell.classList.add('bg-gray-200', 'text-gray-600', 'font-bold', 'p-4');
-
-      questions.forEach((question, index) => {
-          var row = table.insertRow(-1);
-          var cellQuestion = row.insertCell(0);
-          cellQuestion.classList.add('bg-gray-100', 'p-4', 'font-medium'); 
-          cellQuestion.textContent = question.text;
-
-          for (let rating = minScale; rating <= maxScale; rating++) {
-              let cellRating = row.insertCell(-1);
-              let radioInput = document.createElement('input');
-              radioInput.type = 'radio';
-              radioInput.name = 'rating-' + index;
-              radioInput.value = rating;
-              radioInput.classList.add('mr-2');
-
-              let label = document.createElement('label');
-              label.textContent = rating;
-              label.htmlFor = 'rating-' + index + '-' + rating;
-              label.classList.add('inline-block');
-
-              cellRating.appendChild(radioInput);
-              cellRating.appendChild(label);
-          }
-      });
-
-      return table;
-  }
-      
-function submitRatings() {
-    var ratingsData = [];
-
-    // Collect ratings data from the form
-    var ratingElements = document.querySelectorAll("#rating-form input[type='radio']:checked");
-    ratingElements.forEach(function(element) {
-        var questionText = element.closest('tr').cells[0].textContent; 
-        var rating = parseFloat(element.value);
-        ratingsData.push({ question: questionText, rating: rating, user_id: user_id });
-        // console log to check things are working
-        console.log('Question:', questionText, 'Rating:', rating, 'User ID:', user_id);
-    });
-
-    // AJAX call to submit the ratings
-    fetch('/update-ratings/', { 
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ratings: ratingsData})
-    })
-
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            console.log('Ratings updated successfully');
-            // Additional logic for success
-        } else {
-            console.log('Error updating ratings:', data.message);
-            // Additional logic for failure
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crowdsourced Survey Application</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles can be added here if necessary */
+        body {
+            background-color: #f9fafb;
         }
-    })
-    .catch(error => console.error('Error:', error));
-}
+        .rating-button {
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .rating-button.active {
+            background-color: #2563eb; /* Blue-700 */
+            color: #ffffff;
+        }
+        .rating-button.inactive {
+            background-color: #e5e7eb; /* Gray-200 */
+            color: #374151; /* Gray-700 */
+        }
+    </style>
+</head>
+<body class="font-sans leading-normal tracking-normal">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-blue-600">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-white text-2xl font-bold">Crowdsourced Survey Application</h1>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-document.getElementById('rating-form').addEventListener('submit', function(event) {
-    event.preventDefault();
-    submitRatings();
-});
+        <!-- Main Content -->
+        <main class="flex-grow">
+            <div class="max-w-4xl mx-auto p-8">
 
+                <!-- Submission Form -->
+                <div id="submission-form" class="bg-white shadow-md rounded-lg p-6 mb-8">
+                    <h3 class="text-xl font-medium text-gray-700 mb-4">Submit Your Issue</h3>
+                    <form id="issue-form">
+                        <div class="mb-4">
+                            <label for="input" class="block text-gray-700 font-medium mb-2">Enter Your Issue:</label>
+                            <input type="text" id="input" name="input" class="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., Climate Change" required>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 transition duration-200">
+                            Submit
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Survey Matrix Panel -->
+                <div id="survey-matrix-panel" class="hidden bg-white shadow-md rounded-lg p-6 mb-8">
+                    <h3 class="text-xl font-medium text-gray-700 mb-4">Survey Matrix</h3>
+                    <form id="rating-form" method="post" action="{% url 'submit_survey' %}">
+                        {% csrf_token %}
+                        <div id="survey-questions" class="overflow-x-auto mb-4">
+                            <!-- Survey questions will be dynamically inserted here -->
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 transition duration-200">
+                            Submit Ratings
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-blue-600">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <p class="text-center text-white text-sm">&copy; {{ current_year }} Crowdsourced Survey Application. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Parse minScale and maxScale as integers
+        var minScale = parseInt("{{ min_scale }}", 10) || 1;  // Default to 1 if parsing fails
+        var maxScale = parseInt("{{ max_scale }}", 10) || 5;  // Default to 5 if parsing fails
+        var surveyText = "{{ survey_text }}";  // Replace with your actual survey text
+        var aiChoice = "{{ ai_choice }}";  // Get the AI choice from the context
+
+        document.getElementById('issue-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            var input = document.getElementById('input').value.trim();
+            console.log('Input:', input);
+
+            if (!input) {
+                alert('Please enter an issue.');
+                return;
+            }
+
+            try {
+                // Fetch the survey questions first
+                let surveyQuestions = await fetchSurveyQuestions();
+                // Then get the AI completion
+                let completion = await getAICompletion(input);
+
+                if (completion) {
+                    // Append the completion to the survey questions
+                    surveyQuestions.push({ text: completion });
+                    // Shuffle the questions
+                    shuffleArray(surveyQuestions);
+                    // Display the survey matrix
+                    displaySurveyQuestions(surveyQuestions);
+                    document.getElementById('survey-matrix-panel').classList.remove('hidden');
+                } else {
+                    alert('An error occurred while processing your submission. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            }
+        });
+
+        // Function to fetch survey questions from the backend
+        async function fetchSurveyQuestions() {
+            try {
+                let response = await fetch('/select-questions-simulation/');
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                let data = await response.json();
+
+                // Check if there's an error in the response
+                if (data.error) {
+                    console.error('Error from backend:', data.error);
+                    alert('An error occurred while fetching survey questions. Please try again.');
+                    return [];
+                }
+
+                let questions = transformQuestionsData(data);
+                return questions;
+            } catch (error) {
+                console.error('Error fetching survey questions:', error);
+                alert('An error occurred while fetching survey questions. Please try again.');
+                return [];
+            }
+        }
+
+        // Function to get AI completion from the backend
+        async function getAICompletion(input) {
+            let endpoint = aiChoice === 'llama' ? '/dynamic-issue-llama/' : '/dynamic-issue-openai/';
+            try {
+                let response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')  // Ensure CSRF token is sent
+                    },
+                    body: JSON.stringify({ input: input })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                let data = await response.json();
+                console.log('AI Completion data:', data);
+
+                if (data.completion) {
+                    return data.completion;
+                } else {
+                    console.error('No completion received from backend.');
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error getting AI completion:', error);
+                return null;
+            }
+        }
+
+        // Function to transform backend data into a questions array
+        function transformQuestionsData(data) {
+            let questions = [];
+            for (const key in data) {
+                if (key.startsWith('q_')) {
+                    questions.push({ text: data[key] });
+                }
+            }
+            return questions;
+        }
+
+        // Function to display survey questions in the matrix
+        function displaySurveyQuestions(questions) {
+            var surveyQuestionsDiv = document.getElementById('survey-questions');
+            surveyQuestionsDiv.innerHTML = '';
+            surveyQuestionsDiv.appendChild(createQuestionMatrix(questions));
+        }
+
+        // Function to create the survey question matrix with styled buttons
+        function createQuestionMatrix(questions) {
+            var container = document.createElement('div');
+            container.classList.add('space-y-6');
+
+            questions.forEach((question, index) => {
+                var questionDiv = document.createElement('div');
+                questionDiv.classList.add('question-container', 'flex', 'flex-col');
+
+                var questionText = document.createElement('span');
+                questionText.classList.add('question-text', 'text-gray-700', 'font-medium', 'mb-2');
+                questionText.textContent = question.text;
+                questionDiv.appendChild(questionText);
+
+                var buttonsDiv = document.createElement('div');
+                buttonsDiv.classList.add('flex', 'space-x-4');
+
+                for (let rating = minScale; rating <= maxScale; rating++) {
+                    let button = document.createElement('button');
+                    button.type = 'button';
+                    button.textContent = rating;
+                    button.dataset.rating = rating;
+                    button.dataset.questionIndex = index;
+
+                    // Initial state
+                    button.classList.add('rating-button', 'inactive', 'px-4', 'py-2', 'rounded-md', 'focus:outline-none');
+
+                    // Event Listener for toggle
+                    button.addEventListener('click', function() {
+                        let qIndex = this.dataset.questionIndex;
+                        let selectedButton = document.querySelector(`.rating-button[data-question-index="${qIndex}"].active`);
+                        
+                        if (selectedButton) {
+                            selectedButton.classList.remove('active');
+                            selectedButton.classList.add('inactive');
+                        }
+
+                        if (this.classList.contains('inactive')) {
+                            this.classList.remove('inactive');
+                            this.classList.add('active');
+                        } else {
+                            this.classList.remove('active');
+                            this.classList.add('inactive');
+                        }
+                    });
+
+                    buttonsDiv.appendChild(button);
+                }
+
+                questionDiv.appendChild(buttonsDiv);
+                container.appendChild(questionDiv);
+            });
+
+            return container;
+        }
+
+        // Function to shuffle an array in place
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // Function to submit the ratings to the backend
+        async function submitRatings() {
+            var ratingsData = [];
+
+            // Collect ratings data from the form
+            var ratingButtons = document.querySelectorAll(".rating-button.active");
+            ratingButtons.forEach(function(button) {
+                var questionDiv = button.closest('.question-container');
+                if (questionDiv) {
+                    var questionText = questionDiv.querySelector('.question-text')?.textContent;
+                    var rating = parseFloat(button.dataset.rating);
+                    var user_id = new URLSearchParams(window.location.search).get('id') || 'unknown';
+                    if (questionText) {
+                        ratingsData.push({ question: questionText, rating: rating, user_id: user_id });
+                        console.log('Question:', questionText, 'Rating:', rating, 'User ID:', user_id);
+                    }
+                }
+            });
+
+            if (ratingsData.length === 0) {
+                alert('Please rate at least one question.');
+                return;
+            }
+
+            try {
+                // AJAX call to submit the ratings
+                let response = await fetch('/update-ratings/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')  // Ensure CSRF token is sent
+                    },
+                    body: JSON.stringify({ ratings: ratingsData })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                let data = await response.json();
+                console.log('Response data:', data);
+
+                if (data.status === 'success') {
+                    console.log('Ratings updated successfully');
+                    alert('Thank you for your ratings!');
+                    // Optionally, redirect or reset the form
+                    window.location.href = '/thank-you/';  // Example redirect
+                } else {
+                    console.log('Error updating ratings:', data.message);
+                    alert('An error occurred while updating your ratings. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while updating your ratings. Please try again.');
+            }
+        }
+
+        // Event listener for the rating submission form
+        document.getElementById('rating-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            submitRatings();
+        });
+
+        // Utility function to get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
     </script>
-    
 </body>
 </html>
